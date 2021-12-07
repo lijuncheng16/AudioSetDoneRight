@@ -178,6 +178,10 @@ class ASTModel(nn.Module):
         x = (x[:, 0] + x[:, 1]) / 2
 
         x = self.mlp_head(x)
+        x = torch.sigmoid(x)
+        x = torch.clamp(x, 1e-7, 1 - 1e-7)
+#         print(x.sum(dim=1))
+#         print(x.dtype)
         return x, None, None
     
     def predict(self, x, verbose = True, batch_size = 50):
@@ -189,7 +193,7 @@ class ASTModel(nn.Module):
             with torch.no_grad():
                 input = Variable(torch.from_numpy(x[i : i + batch_size])).cuda()
                 output = self.forward(input)
-#                 print(f'output shape: {output.shape}')
+#                 print(f'output shape: {output[:1].shape}')
 #                 print(output)
                 # att = output[2].cpu().numpy()
                 # np.save('resnetatt.npy', att)
@@ -199,16 +203,18 @@ class ASTModel(nn.Module):
                 if not verbose: output = output[:1]
                 result.append([var.data.cpu().numpy() for var in output])
         result = tuple(numpy.concatenate(items) for items in zip(*result))
+#         print(result[0].shape)
         return result if verbose else result[0]
 
 if __name__ == '__main__':
-    input_tdim = 100
-    ast_mdl = ASTModel(input_tdim=input_tdim)
+    input_tdim = 400
+    input_fdim =64
+    ast_mdl = ASTModel(input_tdim=input_tdim, input_fdim=input_fdim)
     # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, 128])
+    test_input = torch.rand([10, input_tdim, 64])
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
-    print(test_output.shape)
+    print('test Shape:', test_output[0].shape)
 
     input_tdim = 256
     ast_mdl = ASTModel(input_tdim=input_tdim,label_dim=50, audioset_pretrain=True)

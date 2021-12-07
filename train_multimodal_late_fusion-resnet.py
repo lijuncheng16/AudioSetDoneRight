@@ -10,7 +10,7 @@ from Net_mModal import Net, NewNet, TransformerEncoder, Transformer, MMTEncoder,
 from util_in_multi_h5_unnorm import *
 from util_out import *
 from util_f1 import *
-from AudioResNet import resnet50, wide_resnet50_2
+from AudioResNet import resnet34, resnet50, wide_resnet50_2
 from AST import ASTModel
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -76,7 +76,7 @@ parser.add_argument('--additional_outname', type = str, default = '')
 parser.add_argument('--continue_from_ckpt', type = str, default = None)
 parser.add_argument('--warmup_steps', type = int, default = 1000)
 parser.add_argument('--gradient_accumulation', type = int, default = 1)
-parser.add_argument('--scheduler', type = str, default = 'reduce', choices = ['reduce', 'warmup-decay','multistepLR'])
+parser.add_argument('--scheduler', type = str, default = 'reduce', choices = ['reduce', 'warmup-decay'])
 parser.add_argument('--addpos', type = mybool, default = False)
 parser.add_argument('--transformer_dropout', type = float, default = 0.5)
 parser.add_argument('--from_scratch', type = mybool, default = False)
@@ -159,7 +159,7 @@ elif args.model_type == 'TAL-new':
 elif args.model_type == 'Trans':
     model = Transformer(args).cuda()
 elif args.model_type == 'resnet':
-    model = resnet50().cuda()
+    model = resnet34().cuda()
 elif args.model_type == 'wide_resnet':
     model = wide_resnet50_2().cuda()
 elif args.model_type == 'MMT':
@@ -180,17 +180,16 @@ if args.optimizer == 'sgd':
     optimizer = SGD(model.parameters(), lr = args.init_lr, momentum = 0.9, nesterov = True)
 elif args.optimizer == 'adam':
     optimizer = Adam(model.parameters(), lr = args.init_lr, betas=(args.beta1, args.beta2), weight_decay=args.weight_decay)
+    if args.model_type == 'AST':
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [2,3,4,5], gamma=0.5, last_epoch=-1)
 elif args.optimizer == 'adamw':
     optimizer = AdamW(model.parameters(), lr = args.init_lr, betas=(args.beta1, args.beta2), weight_decay=args.weight_decay)
 if args.scheduler == 'reduce':
     scheduler = ReduceLROnPlateau(optimizer, mode = 'max', factor = args.lr_factor, patience = args.lr_patience) if args.lr_factor < 1.0 else None
 elif args.scheduler == 'warmup-decay':
     t_total = args.ckpt_size * args.max_ckpt / args.gradient_accumulation
-    #     scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total) Deprecated API style
+#     scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total) Deprecated API style
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps = t_total)
-elif args.scheduler == 'multistepLR':
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [2,3,4,5], gamma=0.5, last_epoch=-1)
-
 
 else:
     print ('scheduler type not recognized')
@@ -247,9 +246,6 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
             optimizer.step()
             if args.scheduler == 'warmup-decay':
                 scheduler.step() 
-            elif args.scheduler == 'multistepLR':
-                scheduler.step() 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
         if batch % 500 == 0:
             sys.stderr.write('Checkpoint %d, Batch %d / %d, avg train loss = %f\r' % \
@@ -272,7 +268,6 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
         global_prob,_ = model.predict(gas_valid_x2, verbose = False)
     else:
         global_prob,_ = model.predict(gas_valid_x1, gas_valid_x2, verbose = False)
-#     print(global_prob.shape, gas_valid_y.shape)
     gv_map, gv_mauc, gv_dprime = gas_eval(global_prob, gas_valid_y)
     tb_writer.add_scalar('GAS_valid_Accuracy', gv_map, global_step)
     sys.stderr.write('Evaluating model on GAS_EVAL ... \r')
