@@ -5,6 +5,8 @@ import numpy
 import h5py
 import torch
 from torch.autograd import Variable
+GAS_FEATURE_DIR = '/jet/home/billyli/data_folder/data/googleAudioSet/pylon5/ir3l68p/kaixinm/cmu-thesis/data/audioset'
+DCASE_FEATURE_DIR = '/jet/home/billyli/data_folder/data/dcase'
 
 N_CLASSES = 527
 N_WORKERS = 6
@@ -12,6 +14,9 @@ local = os.getenv('LOCAL')
 local = '/jet/home/billyli/data_folder/data/googleAudioSet'
 hf_train_path = os.path.join(local,'data_train.h5')
 hf_val_eval_path = os.path.join(local, 'data.h5')
+with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
+    mu, sigma = pickle.load(f, encoding='bytes')
+
 
 def batch_generator(batch_size, random_seed = 15213):
     rng = numpy.random.RandomState(random_seed)
@@ -50,3 +55,27 @@ def multi_bulk_load(prefix):
         assert('error')
     hf_val_eval.close()
     return feat_a.astype('float32'), feat_v.astype('float32'), labels.astype('float32'), None 
+
+def bulk_load(prefix):
+    feat = []; labels = []; hashes = []
+    for filename in sorted(glob.glob(os.path.join(GAS_FEATURE_DIR, '%s_*.mat' % prefix)) +
+                           glob.glob(os.path.join(DCASE_FEATURE_DIR, '%s_*.mat' % prefix))):
+        data = loadmat(filename)
+        feat.append(((data['feat'] - mu) / sigma).astype('float32'))
+        labels.append(data['labels'].astype('bool'))
+        hashes.append(data['hashes'])
+    return numpy.concatenate(feat), numpy.concatenate(labels), numpy.concatenate(hashes)
+
+def unnorm_bulk_load(prefix):
+    """
+    Very very bad performance, values near 100, and would end up with MAP 0.012, do not use this function, only for testing purpose.
+    """
+    feat = []; labels = []; hashes = []
+    for filename in sorted(glob.glob(os.path.join(GAS_FEATURE_DIR, '%s_*.mat' % prefix)) +
+                           glob.glob(os.path.join(DCASE_FEATURE_DIR, '%s_*.mat' % prefix))):
+        data = loadmat(filename)
+        feat.append((data['feat']).astype('float32'))
+        labels.append(data['labels'].astype('bool'))
+        hashes.append(data['hashes'])
+    return numpy.concatenate(feat), numpy.concatenate(labels), numpy.concatenate(hashes)
+
