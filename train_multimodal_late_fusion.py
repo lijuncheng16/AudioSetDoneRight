@@ -169,7 +169,7 @@ elif args.model_type == 'MMTLF':
 elif args.model_type == 'VM':
     model = videoModel(args).cuda()
 elif args.model_type == 'AST':
-    model = ASTModel(label_dim=527, input_fdim=64, input_tdim=400, imagenet_pretrain=True, audioset_pretrain=False).cuda()
+    model = ASTModel(label_dim=527, fstride=8, tstride=8, input_fdim=64, input_tdim=400, imagenet_pretrain=True, audioset_pretrain=False).cuda()
 else:
     print ('model type not recognized')
     exit(0)

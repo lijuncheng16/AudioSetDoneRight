@@ -196,7 +196,7 @@ class ASTModel(nn.Module):
 #         print(x.dtype)
         return x, None, None
     
-    def predict(self, x, verbose = True, batch_size = 50):
+    def predict(self, x, verbose = True, batch_size = 100):
         # Predict in batches. Both input and output are numpy arrays.
         # If verbose == True, return all of global_prob, frame_prob and att
         # If verbose == False, only return global_prob
@@ -205,7 +205,7 @@ class ASTModel(nn.Module):
             with torch.no_grad():
                 input = Variable(torch.from_numpy(x[i : i + batch_size])).cuda()
                 output = self.forward(input)
-#                 print(f'output shape: {output[:1].shape}')
+#                 print(f'output shape: {output[0].shape}')
 #                 print(output)
                 # att = output[2].cpu().numpy()
                 # np.save('resnetatt.npy', att)
@@ -215,15 +215,15 @@ class ASTModel(nn.Module):
                 if not verbose: output = output[:1]
                 result.append([var.data.cpu().numpy() for var in output])
         result = tuple(numpy.concatenate(items) for items in zip(*result))
-#         print(result[0].shape)
+        print(len(result))
         return result if verbose else result[0]
 
 if __name__ == '__main__':
-    input_tdim = 400
-    input_fdim = 64
+    input_tdim = 1024
+    input_fdim = 128
     ast_mdl = ASTModel(input_tdim=input_tdim, input_fdim=input_fdim, imagenet_pretrain=True)
     # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, 64])
+    test_input = torch.rand([10, input_tdim, input_fdim])
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
     print('test output Shape:', test_output[0].shape)
