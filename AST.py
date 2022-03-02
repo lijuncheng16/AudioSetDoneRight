@@ -73,7 +73,7 @@ class ASTModel(nn.Module):
 
             # automatcially get the intermediate shape
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
-            print('f_dim: ', f_dim, 't_dim: ', t_dim)
+            print('f_dim: ', f_dim, 't_dim: ', t_dim)#5, 39
             num_patches = f_dim * t_dim
             self.v.patch_embed.num_patches = num_patches
             if verbose == True:
@@ -104,16 +104,19 @@ class ASTModel(nn.Module):
                 else:
                     new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
                 # flatten the positional embedding
-                print(new_pos_embed.shape)
+                print("pos_embedding shape: ", new_pos_embed.shape)
                 new_pos_embed = new_pos_embed.reshape(1, self.original_embedding_dim, num_patches).transpose(1,2)
                 # concatenate the above positional embedding with the cls token and distillation token of the deit model.
                 self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
+                print("pos_embedding reshaped shape: ", self.v.pos_embed.shape)
+
             else:
                 # if not use imagenet pretrained model, just randomly initialize a learnable positional embedding
                 # TODO can use sinusoidal positional embedding instead
                 new_pos_embed = nn.Parameter(torch.zeros(1, self.v.patch_embed.num_patches + 2, self.original_embedding_dim))
                 self.v.pos_embed = new_pos_embed
                 trunc_normal_(self.v.pos_embed, std=.02)
+                print("random pos_embedding shape: ", self.v.pos_embed.shape)
 
         # now load a model that is pretrained on both ImageNet and AudioSet
         elif audioset_pretrain == True:
@@ -156,7 +159,7 @@ class ASTModel(nn.Module):
         print('inputshape: ', input_fdim, input_tdim)
         test_proj = nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
         test_out = test_proj(test_input)
-        print('outshape: ', test_out.shape)
+        print('outshape: ', test_out.shape)#torch.Size([1, 768, 5, 39])
         f_dim = test_out.shape[2]
         t_dim = test_out.shape[3]
         return f_dim, t_dim
@@ -169,9 +172,11 @@ class ASTModel(nn.Module):
         """
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
 #         print("input shape:", x.shape)
+#         print("x shape: ", x.shape)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
-        print('x shape: ', x.shape)
+        #x shape[100, 1, 64, 400]
+#         print("x_t shape: ", x.shape)
         B = x.shape[0]
         x = self.v.patch_embed(x)
         cls_tokens = self.v.cls_token.expand(B, -1, -1)
@@ -183,7 +188,7 @@ class ASTModel(nn.Module):
             x = blk(x)
         x = self.v.norm(x)
         x = (x[:, 0] + x[:, 1]) / 2
-
+        #DeiT has two [CLS] tokens; we average them as a single [CLS] token for audio training.
         x = self.mlp_head(x)
 #         x = torch.sigmoid(x)
 #         x = torch.clamp(x, 1e-7, 1 - 1e-7)
@@ -215,18 +220,18 @@ class ASTModel(nn.Module):
 
 if __name__ == '__main__':
     input_tdim = 400
-    input_fdim =64
-    ast_mdl = ASTModel(input_tdim=input_tdim, input_fdim=input_fdim)
+    input_fdim = 64
+    ast_mdl = ASTModel(input_tdim=input_tdim, input_fdim=input_fdim, imagenet_pretrain=True)
     # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
     test_input = torch.rand([10, input_tdim, 64])
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
-    print('test Shape:', test_output[0].shape)
+    print('test output Shape:', test_output[0].shape)
 
-    input_tdim = 256
-    ast_mdl = ASTModel(input_tdim=input_tdim,label_dim=50, audioset_pretrain=True)
-    # input a batch of 10 spectrogram, each with 512 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, 128])
-    test_output = ast_mdl(test_input)
-    # output should be in shape [10, 50], i.e., 10 samples, each with prediction of 50 classes.
-    print(test_output[0])
+#     input_tdim = 256
+#     ast_mdl = ASTModel(input_tdim=input_tdim,label_dim=50, audioset_pretrain=True)
+#     # input a batch of 10 spectrogram, each with 512 time frames and 128 frequency bins
+#     test_input = torch.rand([10, input_tdim, 128])
+#     test_output = ast_mdl(test_input)
+#     # output should be in shape [10, 50], i.e., 10 samples, each with prediction of 50 classes.
+#     print(test_output[0])
