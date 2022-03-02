@@ -162,6 +162,7 @@ class ASTModel(nn.Module):
         :return: prediction
         """
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
+#         print("input shape:", x.shape)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
 
@@ -178,8 +179,8 @@ class ASTModel(nn.Module):
         x = (x[:, 0] + x[:, 1]) / 2
 
         x = self.mlp_head(x)
-        x = torch.sigmoid(x)
-        x = torch.clamp(x, 1e-7, 1 - 1e-7)
+#         x = torch.sigmoid(x)
+#         x = torch.clamp(x, 1e-7, 1 - 1e-7)
 #         print(x.sum(dim=1))
 #         print(x.dtype)
         return x, None, None
@@ -222,4 +223,4 @@ if __name__ == '__main__':
     test_input = torch.rand([10, input_tdim, 128])
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 50], i.e., 10 samples, each with prediction of 50 classes.
-    print(test_output.shape)
+    print(test_output[0])

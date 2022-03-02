@@ -196,6 +196,8 @@ else:
     print ('scheduler type not recognized')
     exit(0)
 criterion = nn.BCELoss()
+if args.model_type =='AST':
+    criterion = nn.BCEWithLogitsLoss()
 start_ckpt = 1
 if args.continue_from_ckpt != None:
     prev_ckpt = torch.load(args.continue_from_ckpt)
@@ -225,15 +227,19 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
     for batch in range(1, args.ckpt_size + 1):
         x1, x2, y = next(train_gen)
 #         print(f'loaded batch{batch}, size: {x1.shape, x2.shape, y.shape}')
-        if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet','AST']:
+        if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet']:
             global_prob = model(x1)[0]
             global_prob = global_prob.float()
 #             print(global_prob)
+        elif args.model_type == 'AST':
+            global_prob = model(x1)[0]
+#             print(global_prob.shape)
         elif args.model_type == 'VM':
             global_prob = model(x2)[0]
         else:
             global_prob = model(x1, x2)[0]
-        global_prob.clamp_(min = 1e-7, max = 1 - 1e-7)
+        if args.model_type != 'AST':
+            global_prob.clamp_(min = 1e-7, max = 1 - 1e-7)
         loss = criterion(global_prob, y)
         if args.gradient_accumulation > 1:
             loss = loss / args.gradient_accumulation
