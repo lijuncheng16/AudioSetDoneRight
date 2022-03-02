@@ -66,13 +66,14 @@ class ASTModel(nn.Module):
                 self.v = timm.create_model('vit_deit_base_distilled_patch16_384', pretrained=imagenet_pretrain)
             else:
                 raise Exception('Model size must be one of tiny224, small224, base224, base384.')
-            self.original_num_patches = self.v.patch_embed.num_patches
-            self.oringal_hw = int(self.original_num_patches ** 0.5)
-            self.original_embedding_dim = self.v.pos_embed.shape[2]
+            self.original_num_patches = self.v.patch_embed.num_patches #576
+            self.oringal_hw = int(self.original_num_patches ** 0.5)#24
+            self.original_embedding_dim = self.v.pos_embed.shape[2]#768
             self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim), nn.Linear(self.original_embedding_dim, label_dim))
 
             # automatcially get the intermediate shape
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
+            print('f_dim: ', f_dim, 't_dim: ', t_dim)
             num_patches = f_dim * t_dim
             self.v.patch_embed.num_patches = num_patches
             if verbose == True:
@@ -83,7 +84,9 @@ class ASTModel(nn.Module):
             new_proj = torch.nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
             if imagenet_pretrain == True:
                 new_proj.weight = torch.nn.Parameter(torch.sum(self.v.patch_embed.proj.weight, dim=1).unsqueeze(1))
-                new_proj.bias = self.v.patch_embed.proj.bias
+                #torch.Size([768, 3, 16, 16]) ->torch.Size([768, 16, 16])-> torch.Size([768, 1, 16, 16])
+                #we average the weights corresponding to each of the three input channels of the ViT patch embedding layer and use them as the weights of the AST patch embedding layer
+                new_proj.bias = self.v.patch_embed.proj.bias #torch.Size([768])
             self.v.patch_embed.proj = new_proj
 
             # the positional embedding
@@ -101,6 +104,7 @@ class ASTModel(nn.Module):
                 else:
                     new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
                 # flatten the positional embedding
+                print(new_pos_embed.shape)
                 new_pos_embed = new_pos_embed.reshape(1, self.original_embedding_dim, num_patches).transpose(1,2)
                 # concatenate the above positional embedding with the cls token and distillation token of the deit model.
                 self.v.pos_embed = nn.Parameter(torch.cat([self.v.pos_embed[:, :2, :].detach(), new_pos_embed], dim=1))
@@ -149,8 +153,10 @@ class ASTModel(nn.Module):
 
     def get_shape(self, fstride, tstride, input_fdim=128, input_tdim=1024):
         test_input = torch.randn(1, 1, input_fdim, input_tdim)
+        print('inputshape: ', input_fdim, input_tdim)
         test_proj = nn.Conv2d(1, self.original_embedding_dim, kernel_size=(16, 16), stride=(fstride, tstride))
         test_out = test_proj(test_input)
+        print('outshape: ', test_out.shape)
         f_dim = test_out.shape[2]
         t_dim = test_out.shape[3]
         return f_dim, t_dim
@@ -165,7 +171,7 @@ class ASTModel(nn.Module):
 #         print("input shape:", x.shape)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
-
+        print('x shape: ', x.shape)
         B = x.shape[0]
         x = self.v.patch_embed(x)
         cls_tokens = self.v.cls_token.expand(B, -1, -1)
