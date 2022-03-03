@@ -20,6 +20,7 @@ with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
 
 def batch_generator(batch_size, random_seed = 15213):
     rng = numpy.random.RandomState(random_seed)
+    rand_int= numpy.random.randint(batch_size, 100)
     all_epochs = list(range(1,12,1))
     all_iter = list(range(1,2501,1))
     while True:
@@ -29,9 +30,11 @@ def batch_generator(batch_size, random_seed = 15213):
             hf_train = h5py.File(hf_train_path, 'r')
             for j in all_iter:
                 key = str(i)+'_'+str(j)
-                feat_a = hf_train[key]['audio'][:]
-                feat_v = hf_train[key]['video'][:]
-                label = hf_train[key]['label'][:] 
+                feat_a = hf_train[key]['audio'][rand_int-batch_size:rand_int]
+#                 print('feat_a shape', feat_a.shape)
+#                 feat_v = hf_train[key]['video'][:]
+                feat_v = hf_train[key]['video'][rand_int-batch_size:rand_int]
+                label = hf_train[key]['label'][rand_int-batch_size:rand_int]
                 feat_a = feat_a.astype('float32')
                 feat_v = feat_v.astype('float32')
                 label = label.astype('float32')

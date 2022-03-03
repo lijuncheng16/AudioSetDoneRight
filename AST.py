@@ -173,8 +173,16 @@ class ASTModel(nn.Module):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
 #         print("input shape:", x.shape)
 #         print("x shape: ", x.shape)
-        x = x.unsqueeze(1)
+        m = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        x = m(x.view(x.shape[0], 1, 400, 64))
         x = x.transpose(2, 3)
+#         print("x_inter shape: ", x.shape)
+
+        stretch = nn.Linear(800, 1024).cuda()
+        x = stretch(x)
+
+#         x = x.unsqueeze(1)
+#         x = x.transpose(2, 3)
         #x shape[100, 1, 64, 400]
 #         print("x_t shape: ", x.shape)
         B = x.shape[0]
@@ -223,7 +231,7 @@ if __name__ == '__main__':
     input_fdim = 128
     ast_mdl = ASTModel(input_tdim=input_tdim, input_fdim=input_fdim, imagenet_pretrain=True)
     # input a batch of 10 spectrogram, each with 100 time frames and 128 frequency bins
-    test_input = torch.rand([10, input_tdim, input_fdim])
+    test_input = torch.rand([10, 400, 64])
     test_output = ast_mdl(test_input)
     # output should be in shape [10, 527], i.e., 10 samples, each with prediction of 527 classes.
     print('test output Shape:', test_output[0].shape)
