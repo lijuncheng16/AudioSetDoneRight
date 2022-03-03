@@ -207,8 +207,8 @@ if args.continue_from_ckpt != None:
     optimizer.load_state_dict(prev_ckpt['optimizer'])
     write_log('Loading model from %s' % args.continue_from_ckpt)
 n_gpu = torch.cuda.device_count()
-#if n_gpu > 1:
-#    model = nn.DataParallel(model)
+if n_gpu > 1:
+    model = nn.DataParallel(model)
 # Train model
 write_log('Training model ...')
 write_log('                            ||       GAS_VALID       ||        GAS_EVAL       || D_VAL ||              DCASE_TEST               ')
@@ -243,8 +243,8 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
         loss = criterion(global_prob, y)
         if args.gradient_accumulation > 1:
             loss = loss / args.gradient_accumulation
-        #if n_gpu > 1:
-        #    loss = loss.mean()
+        if n_gpu > 1:
+            loss = loss.mean()
         train_loss += loss.item()
         if numpy.isnan(train_loss) or numpy.isinf(train_loss): break
         loss.backward()
