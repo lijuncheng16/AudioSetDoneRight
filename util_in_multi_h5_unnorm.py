@@ -5,13 +5,22 @@ import numpy
 import h5py
 import torch
 from torch.autograd import Variable
+import subprocess
+import socket
+
+curr_node = socket.gethostname().split('.')[0]
+batcmd=f"squeue -u billyli | grep {curr_node}"
+curr_slurm = subprocess.check_output(batcmd, shell=True, text=True)
+slurm_id = curr_slurm.strip().split(' ')[0]
+
 GAS_FEATURE_DIR = '/jet/home/billyli/data_folder/data/googleAudioSet/pylon5/ir3l68p/kaixinm/cmu-thesis/data/audioset'
 DCASE_FEATURE_DIR = '/jet/home/billyli/data_folder/data/dcase'
 
 N_CLASSES = 527
 N_WORKERS = 6
-local = os.getenv('LOCAL')
-local = '/jet/home/billyli/data_folder/data/googleAudioSet'
+# local = os.getenv('LOCAL')
+# local = '/jet/home/billyli/data_folder/data/googleAudioSet'
+local = f"/local/slurm-{slurm_id}/local/audio"
 hf_train_path = os.path.join(local,'data_train.h5')
 hf_val_eval_path = os.path.join(local, 'data.h5')
 with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
