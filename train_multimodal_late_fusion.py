@@ -80,7 +80,8 @@ parser.add_argument('--scheduler', type = str, default = 'reduce', choices = ['r
 parser.add_argument('--addpos', type = mybool, default = False)
 parser.add_argument('--transformer_dropout', type = float, default = 0.5)
 parser.add_argument('--from_scratch', type = mybool, default = False)
-parser.add_argument('--fusion_module', type = int, default = 0) # 0 for early fusion, 1 for mid fusion 1 
+parser.add_argument('--fusion_module', type = int, default = 0)# 0 for early fusion, 1 for mid fusion 1 
+parser.add_argument('--multi_gpu', type = bool, default = False)
 args = parser.parse_args()
 if 'x' not in args.kernel_size:
     args.kernel_size = args.kernel_size + 'x' + args.kernel_size
@@ -207,7 +208,7 @@ if args.continue_from_ckpt != None:
     optimizer.load_state_dict(prev_ckpt['optimizer'])
     write_log('Loading model from %s' % args.continue_from_ckpt)
 n_gpu = torch.cuda.device_count()
-if n_gpu > 1:
+if n_gpu > 1 and args.multi_gpu:
     model = nn.DataParallel(model)
 # Train model
 write_log('Training model ...')
@@ -243,7 +244,7 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
         loss = criterion(global_prob, y)
         if args.gradient_accumulation > 1:
             loss = loss / args.gradient_accumulation
-        if n_gpu > 1:
+        if n_gpu > 1 and args.multi_gpu:
             loss = loss.mean()
         train_loss += loss.item()
         if numpy.isnan(train_loss) or numpy.isinf(train_loss): break
@@ -271,25 +272,49 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
     model.eval()
     sys.stderr.write('Evaluating model on GAS_VALID ...\r')
     if args.model_type in ['TAL-trans', 'TAL']:
-        global_prob,_ = model.predict(gas_valid_x1, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_valid_x1, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_valid_x1, verbose = False)
     elif args.model_type in ['resnet','wide_resnet','AST']:
-        global_prob = model.predict(gas_valid_x1, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob = model.module.predict(gas_valid_x1, verbose = False)
+        else:
+            global_prob = model.predict(gas_valid_x1, verbose = False)
     elif args.model_type == 'VM':
-        global_prob,_ = model.predict(gas_valid_x2, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_valid_x2, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_valid_x2, verbose = False)
     else:
-        global_prob,_ = model.predict(gas_valid_x1, gas_valid_x2, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_valid_x1, gas_valid_x2, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_valid_x1, gas_valid_x2, verbose = False)
 #     print(global_prob.shape, gas_valid_y.shape)
     gv_map, gv_mauc, gv_dprime = gas_eval(global_prob, gas_valid_y)
     tb_writer.add_scalar('GAS_valid_Accuracy', gv_map, global_step)
     sys.stderr.write('Evaluating model on GAS_EVAL ... \r')
     if args.model_type in ['TAL-trans', 'TAL']:
-        global_prob,_ = model.predict(gas_eval_x1, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_eval_x1, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_eval_x1, verbose = False)
     elif args.model_type in ['resnet','wide_resnet','AST']:
-        global_prob = model.predict(gas_eval_x1, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob = model.module.predict(gas_eval_x1, verbose = False)
+        else:
+            global_prob = model.predict(gas_eval_x1, verbose = False)
     elif args.model_type == 'VM':
-        global_prob,_ = model.predict(gas_eval_x2, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_eval_x2, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_eval_x2, verbose = False)
     else:
-        global_prob,_ = model.predict(gas_eval_x1, gas_eval_x2, verbose = False)
+        if n_gpu > 1 and args.multi_gpu:
+            global_prob,_ = model.module.predict(gas_eval_x1, gas_eval_x2, verbose = False)
+        else:
+            global_prob,_ = model.predict(gas_eval_x1, gas_eval_x2, verbose = False)
     ge_map, ge_mauc, ge_dprime = gas_eval(global_prob, gas_eval_y)
     tb_writer.add_scalar('GAS_test_Accuracy', ge_map, global_step)
 #     sys.stderr.write('Evaluating model on DCASE_VALID ...\r')
