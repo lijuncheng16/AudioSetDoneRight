@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.optim import *
 from torch.optim.lr_scheduler import *
 from torch.autograd import Variable
-from Net_mModal import Net, NewNet, TransformerEncoder, Transformer, MMTEncoder, LateFusion, videoModel, SuperLateFusion
+from Net_mModal_mgpu import Net, NewNet, TransformerEncoder, Transformer, MMTEncoder, LateFusion, videoModel, SuperLateFusion
 from util_in_multi_h5_unnorm import *
 from util_out import *
 from util_f1 import *
@@ -148,34 +148,40 @@ print(gas_valid_y.shape)
 print(gas_eval_x1.shape)
 print(gas_eval_x2.shape)
 print(gas_eval_y.shape)
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Build model
 args.kernel_size = tuple(int(x) for x in args.kernel_size.split('x'))
 if args.model_type == 'TAL':
-    model = Net(args).cuda()
+    model = Net(args)
 elif args.model_type == 'TAL-trans':
-    model = TransformerEncoder(args).cuda()
+    model = TransformerEncoder(args)
 elif args.model_type == 'TAL-new':
-    model = NewNet(args).cuda()
+    model = NewNet(args)
 elif args.model_type == 'Trans':
-    model = Transformer(args).cuda()
+    model = Transformer(args)
 elif args.model_type == 'resnet':
-    model = resnet50().cuda()
+    model = resnet50()
 elif args.model_type == 'wide_resnet':
-    model = wide_resnet50_2().cuda()
+    model = wide_resnet50_2()
 elif args.model_type == 'MMT':
-    model = MMTEncoder(args).cuda()
+    model = MMTEncoder(args)
 elif args.model_type == 'MMTLF':
-    model = LateFusion(args).cuda()
+    model = LateFusion(args)
 elif args.model_type == 'VM':
-    model = videoModel(args).cuda()
+    model = videoModel(args)
 elif args.model_type == 'AST':
-    model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False).cuda()
+    model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False)
 else:
     print ('model type not recognized')
     exit(0)
+n_gpu = torch.cuda.device_count()
+if n_gpu > 1 and args.multi_gpu:
+    model = nn.DataParallel(model)
+model = model.to(device)
+print('running on ' + str(device))
+
 count = count_parameters(model)
-print (count)
+print ('model params count:', count)
 
 if args.optimizer == 'sgd':
     optimizer = SGD(model.parameters(), lr = args.init_lr, momentum = 0.9, nesterov = True)
@@ -207,9 +213,7 @@ if args.continue_from_ckpt != None:
     model.load_state_dict(prev_ckpt['model'])
     optimizer.load_state_dict(prev_ckpt['optimizer'])
     write_log('Loading model from %s' % args.continue_from_ckpt)
-n_gpu = torch.cuda.device_count()
-if n_gpu > 1 and args.multi_gpu:
-    model = nn.DataParallel(model)
+
 # Train model
 write_log('Training model ...')
 write_log('                            ||       GAS_VALID       ||        GAS_EVAL       || D_VAL ||              DCASE_TEST               ')
@@ -227,6 +231,8 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
     gc.collect()
     for batch in range(1, args.ckpt_size + 1):
         x1, x2, y = next(train_gen)
+        x1 = x1.to(device)
+        y = y.to(device)
 #         print(f'loaded batch{batch}, size: {x1.shape, x2.shape, y.shape}')
         if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet']:
             global_prob = model(x1)[0]
