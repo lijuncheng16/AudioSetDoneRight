@@ -13,7 +13,7 @@ batcmd=f"squeue -u billyli | grep {curr_node}"
 curr_slurm = subprocess.check_output(batcmd, shell=True, text=True)
 slurm_id = curr_slurm.strip().split(' ')[0]
 
-GAS_FEATURE_DIR = '/jet/home/billyli/data_folder/data/googleAudioSet/pylon5/ir3l68p/kaixinm/cmu-thesis/data/audioset'
+# GAS_FEATURE_DIR = '/jet/home/billyli/data_folder/data/googleAudioSet/pylon5/ir3l68p/kaixinm/cmu-thesis/data/audioset'
 DCASE_FEATURE_DIR = '/jet/home/billyli/data_folder/data/dcase'
 
 N_CLASSES = 527
@@ -21,6 +21,7 @@ N_WORKERS = 6
 # local = os.getenv('LOCAL')
 # local = '/jet/home/billyli/data_folder/data/googleAudioSet'
 local = f"/local/slurm-{slurm_id}/local/audio"
+GAS_FEATURE_DIR = os.path.join(local, 'pylon5/ir3l68p/kaixinm/cmu-thesis/data/audioset')
 hf_train_path = os.path.join(local,'data_train.h5')
 hf_val_eval_path = os.path.join(local, 'data.h5')
 with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
@@ -29,7 +30,10 @@ with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
 
 def batch_generator(batch_size, random_seed = 15213):
     rng = numpy.random.RandomState(random_seed)
-    rand_int= numpy.random.randint(batch_size, 100)
+    if batch_size !=100:
+        rand_int= numpy.random.randint(batch_size, 100)
+    else:
+        rand_int = 100
     all_epochs = list(range(1,12,1))
     all_iter = list(range(1,2501,1))
     while True:
