@@ -211,15 +211,18 @@ class ASTModel(nn.Module):
             with torch.no_grad():
                 input = Variable(torch.from_numpy(x[i : i + batch_size])).cuda()
                 output = self.forward(input)
-#                 print(f'output shape: {output[0].shape}')
+#                 print(output)
+                output = torch.sigmoid(output[0])
+#                 print(f'output shape: {output.shape}')
 #                 print(output)
                 # att = output[2].cpu().numpy()
                 # np.save('resnetatt.npy', att)
                 # frame = output[1].cpu().numpy()
                 # np.save('resnetframe.npy', frame)
                 # exit(0)
-                if not verbose: output = output[:1]
-                result.append([var.data.cpu().numpy() for var in output])
+#                 if not verbose: output = output[:1]
+                result.append([output.data.cpu().numpy()])
+        print(len(result))
         result = tuple(numpy.concatenate(items) for items in zip(*result))
         print(len(result))
         return result if verbose else result[0]
