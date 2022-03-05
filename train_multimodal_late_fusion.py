@@ -116,8 +116,11 @@ MODEL_PATH = os.path.join(WORKSPACE, 'model')
 if not os.path.exists(MODEL_PATH): os.makedirs(MODEL_PATH)
 LOG_FILE = os.path.join(WORKSPACE, 'train.log')
 os.system("cp -r train_multimodal_late_fusion.py %s" % os.path.join(WORKSPACE, 'train_multimodal_late_fusion.py'))
-os.system("cp -r Net_mModal.py %s" % os.path.join(WORKSPACE, 'Net_mModal.py'))
+os.system("cp -r Net_mModal_mgpu.py %s" % os.path.join(WORKSPACE, 'Net_mModal.py'))
 os.system("cp -r AudioResNet.py %s" % os.path.join(WORKSPACE, 'AudioResNet.py'))
+os.system("cp -r AST.py %s" % os.path.join(WORKSPACE, 'AST.py'))
+os.system("cp -r util_in_multi_h5_unnorm.py %s" % os.path.join(WORKSPACE, 'util_in_multi_h5_unnorm.py'))
+
 with open(LOG_FILE, 'w'):
     pass
 
@@ -133,9 +136,12 @@ def count_parameters(model):
 
 # Load data
 write_log('Loading data ...')
-train_gen = batch_generator(batch_size = args.batch_size, random_seed = args.random_seed)
-gas_valid_x1, gas_valid_x2, gas_valid_y, _ = multi_bulk_load('GAS_valid')
-gas_eval_x1, gas_eval_x2, gas_eval_y, _ = multi_bulk_load('GAS_eval')
+normalize_scale = 1
+if args.model_type == 'AST':
+    normalize_scale = 8
+train_gen = batch_generator(batch_size = args.batch_size, random_seed = args.random_seed, normalize_scale=normalize_scale)
+gas_valid_x1, gas_valid_x2, gas_valid_y, _ = multi_bulk_load('GAS_valid', normalize_scale)
+gas_eval_x1, gas_eval_x2, gas_eval_y, _ = multi_bulk_load('GAS_eval', normalize_scale)
 # dcase_valid_x, dcase_valid_y, _ = bulk_load('DCASE_valid')
 # dcase_test_x, dcase_test_y, _ = bulk_load('DCASE_test')
 # dcase_test_frame_truth = load_dcase_test_frame_truth()
@@ -170,7 +176,8 @@ elif args.model_type == 'MMTLF':
 elif args.model_type == 'VM':
     model = videoModel(args)
 elif args.model_type == 'AST':
-    model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False)
+#     model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False)
+    model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=64, input_tdim=400, imagenet_pretrain=True, audioset_pretrain=False)
 else:
     print ('model type not recognized')
     exit(0)

@@ -172,16 +172,15 @@ class ASTModel(nn.Module):
         """
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
 #         print("input shape:", x.shape)
-#         print("x shape: ", x.shape)
-        m = nn.Upsample((1024,128), mode='bilinear', align_corners=True)
-        x = m(x.view(x.shape[0], 1, 400, 64))
-        x = x.transpose(2, 3)
+#         m = nn.Upsample((1024,128), mode='bilinear', align_corners=True)
+#         x = m(x.view(x.shape[0], 1, 400, 64))
+#         x = x.transpose(2, 3)
 #         stretch = nn.Linear(800, 1024).cuda()
 #         x = stretch(x)
 #         print("x_inter shape: ", x.shape)
-#         x = x.unsqueeze(1)
-#         x = x.transpose(2, 3)
-        #x shape[100, 1, 64, 400]
+        x = x.unsqueeze(1)
+        x = x.transpose(2, 3)
+#         x shape[100, 1, 64, 400]
 #         print("x_t shape: ", x.shape)
         B = x.shape[0]
         x = self.v.patch_embed(x)

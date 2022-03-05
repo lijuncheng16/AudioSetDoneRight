@@ -28,7 +28,7 @@ with open(os.path.join(GAS_FEATURE_DIR, 'normalizer.pkl'), 'rb') as f:
     mu, sigma = pickle.load(f, encoding='bytes')
 
 
-def batch_generator(batch_size, random_seed = 15213):
+def batch_generator(batch_size, random_seed = 15213, normalize_scale = 1):
     rng = numpy.random.RandomState(random_seed)
     if batch_size !=100:
         rand_int= numpy.random.randint(batch_size, 100)
@@ -43,8 +43,10 @@ def batch_generator(batch_size, random_seed = 15213):
             hf_train = h5py.File(hf_train_path, 'r')
             for j in all_iter:
                 key = str(i)+'_'+str(j)
-                feat_a = hf_train[key]['audio'][rand_int-batch_size:rand_int]
+#                 feat_a = hf_train[key]['audio'][rand_int-batch_size:rand_int]
+                feat_a = hf_train[key]['audio'][rand_int-batch_size:rand_int]/normalize_scale # pure hack to debug AST
 #                 print('feat_a shape', feat_a.shape)
+#                 print("feat_a_max:", numpy.max(feat_a))
 #                 feat_v = hf_train[key]['video'][:]
                 feat_v = hf_train[key]['video'][rand_int-batch_size:rand_int]
                 label = hf_train[key]['label'][rand_int-batch_size:rand_int]
@@ -57,14 +59,14 @@ def batch_generator(batch_size, random_seed = 15213):
             hf_train.close()
 
                             
-def multi_bulk_load(prefix):
+def multi_bulk_load(prefix, normalize_scale=1):
     hf_val_eval = h5py.File(hf_val_eval_path, 'r')
     if prefix == 'GAS_valid':
-        feat_a = hf_val_eval['valid']['data']['feat_a'][:]
+        feat_a = hf_val_eval['valid']['data']['feat_a'][:]/normalize_scale
         feat_v = hf_val_eval['valid']['data']['feat_v'][:]
         labels = hf_val_eval['valid']['data']['labels'][:]
     elif prefix == 'GAS_eval':
-        feat_a = hf_val_eval['eval']['data']['feat_a'][:]
+        feat_a = hf_val_eval['eval']['data']['feat_a'][:]/normalize_scale
         feat_v = hf_val_eval['eval']['data']['feat_v'][:]
         labels = hf_val_eval['eval']['data']['labels'][:]
     else:
