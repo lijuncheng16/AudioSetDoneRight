@@ -263,6 +263,12 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
         if numpy.isnan(train_loss) or numpy.isinf(train_loss): break
         loss.backward()
         global_step += 1
+        if global_step <= 1000 and global_step % 50 == 0:
+                warm_lr = (global_step / 1000) * args.init_lr
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = warm_lr
+                print('warm-up learning rate is {:f}'.format(optimizer.param_groups[0]['lr']))
+
         if global_step % args.gradient_accumulation == 0:
             optimizer.step()
             if args.scheduler == 'warmup-decay':
