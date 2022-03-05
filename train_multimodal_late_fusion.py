@@ -87,29 +87,45 @@ if 'x' not in args.kernel_size:
     args.kernel_size = args.kernel_size + 'x' + args.kernel_size
 
 numpy.random.seed(args.random_seed)
-
+if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet']:
 # Prepare log file and model directory
-expid = '%s-embed%d-%dC%dP-kernel%s-%s-drop%.1f-%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-Trans%d-weight-decay%.8f-betas%.3f-%.3f' % (
-    args.model_type,
-    args.embedding_size,
-    args.n_conv_layers,
-    args.n_pool_layers,
-    args.kernel_size,
-    'bn' if args.batch_norm else 'nobn',
-    args.dropout,
-    args.pooling,
-    args.batch_size,
-    args.ckpt_size,
-    args.optimizer,
-    args.init_lr,
-    args.lr_patience,
-    args.lr_factor,
-    args.random_seed,
-    args.n_trans_layers,
-    args.weight_decay,
-    args.beta1, 
-    args.beta2
-)
+    expid = '%s-embed%d-%dC%dP-kernel%s-%s-drop%.1f-%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-Trans%d-weight-decay%.8f-betas%.3f-%.3f' % (
+        args.model_type,
+        args.embedding_size,
+        args.n_conv_layers,
+        args.n_pool_layers,
+        args.kernel_size,
+        'bn' if args.batch_norm else 'nobn',
+        args.dropout,
+        args.pooling,
+        args.batch_size,
+        args.ckpt_size,
+        args.optimizer,
+        args.init_lr,
+        args.lr_patience,
+        args.lr_factor,
+        args.random_seed,
+        args.n_trans_layers,
+        args.weight_decay,
+        args.beta1,
+        args.beta2
+    )
+if args.model_type in ['AST']:
+    expid = '%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-weight-decay%.8f-betas%.3f-%.3f-%s-gdacc%d' % (
+        args.model_type,
+        args.batch_size,
+        args.ckpt_size,
+        args.optimizer,
+        args.init_lr,
+        args.lr_patience,
+        args.lr_factor,
+        args.random_seed,
+        args.weight_decay,
+        args.beta1,
+        args.beta2,
+        args.scheduler,
+        args.gradient_accumulation
+    )
 expid += args.additional_outname
 WORKSPACE = os.path.join('../../workspace/ICASSP2021_tune', expid)
 MODEL_PATH = os.path.join(WORKSPACE, 'model')
