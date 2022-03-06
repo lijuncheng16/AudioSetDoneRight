@@ -45,6 +45,12 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
     return LambdaLR(optimizer, lr_lambda, last_epoch)
 
+def adjust_learning_rate(optimizer, ckpt, args):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = args.init_lr * (0.1**(ckpt // 10))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 # Parse input arguments
 def mybool(s):
     return s.lower() in ['t', 'true', 'y', 'yes', '1']
@@ -68,8 +74,8 @@ parser.add_argument('--init_lr', type = float, default = 1e-3)
 parser.add_argument('--weight_decay', type = float, default = 0)
 parser.add_argument('--beta1', type = float, default = 0.9)
 parser.add_argument('--beta2', type = float, default = 0.999)
-parser.add_argument('--lr_patience', type = int, default = 3)
-parser.add_argument('--lr_factor', type = float, default = 0.8)
+parser.add_argument('--lr_patience', type = int, default = 2)
+parser.add_argument('--lr_factor', type = float, default = 0.1)
 parser.add_argument('--max_ckpt', type = int, default = 30)
 parser.add_argument('--random_seed', type = int, default = 15213)
 parser.add_argument('--additional_outname', type = str, default = '')
@@ -82,6 +88,8 @@ parser.add_argument('--transformer_dropout', type = float, default = 0.5)
 parser.add_argument('--from_scratch', type = mybool, default = False)
 parser.add_argument('--fusion_module', type = int, default = 0)# 0 for early fusion, 1 for mid fusion 1 
 parser.add_argument('--multi_gpu', type = bool, default = False)
+parser.add_argument('--normalize_scale', type = int, default = 1)
+
 args = parser.parse_args()
 if 'x' not in args.kernel_size:
     args.kernel_size = args.kernel_size + 'x' + args.kernel_size
@@ -111,7 +119,7 @@ if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet']:
         args.beta2
     )
 if args.model_type in ['AST']:
-    expid = '%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-weight-decay%.8f-betas%.3f-%.3f-%s-gdacc%d' % (
+    expid = '%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-weight-decay%.8f-betas%.3f-%.3f-%s-gdacc%d-scale%d' % (
         args.model_type,
         args.batch_size,
         args.ckpt_size,
@@ -124,7 +132,8 @@ if args.model_type in ['AST']:
         args.beta1,
         args.beta2,
         args.scheduler,
-        args.gradient_accumulation
+        args.gradient_accumulation,
+        args.normalize_scale
     )
 expid += args.additional_outname
 WORKSPACE = os.path.join('../../workspace/ICASSP2021_tune', expid)
@@ -152,12 +161,10 @@ def count_parameters(model):
 
 # Load data
 write_log('Loading data ...')
-normalize_scale = 1
-if args.model_type == 'AST':
-    normalize_scale = 8
-train_gen = batch_generator(batch_size = args.batch_size, random_seed = args.random_seed, normalize_scale=normalize_scale)
-gas_valid_x1, gas_valid_x2, gas_valid_y, _ = multi_bulk_load('GAS_valid', normalize_scale)
-gas_eval_x1, gas_eval_x2, gas_eval_y, _ = multi_bulk_load('GAS_eval', normalize_scale)
+
+train_gen = batch_generator(batch_size = args.batch_size, random_seed = args.random_seed, normalize_scale=args.normalize_scale)
+gas_valid_x1, gas_valid_x2, gas_valid_y, _ = multi_bulk_load('GAS_valid', args.normalize_scale)
+gas_eval_x1, gas_eval_x2, gas_eval_y, _ = multi_bulk_load('GAS_eval', args.normalize_scale)
 # dcase_valid_x, dcase_valid_y, _ = bulk_load('DCASE_valid')
 # dcase_test_x, dcase_test_y, _ = bulk_load('DCASE_test')
 # dcase_test_frame_truth = load_dcase_test_frame_truth()
@@ -290,7 +297,8 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
             if args.scheduler == 'warmup-decay':
                 scheduler.step() 
             elif args.scheduler == 'multistepLR':
-                scheduler.step() 
+                scheduler.step()
+                adjust_learning_rate(optimizer, checkpoint, args)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
         if batch % 500 == 0:
@@ -395,7 +403,7 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
 
     # Update learning rate
     if args.scheduler == 'reduce':
-        scheduler.step(gv_map)
+        scheduler.step(gv_map, epoch = checkpoint)
 
 # model.eval()
 # sys.stderr.write('Fusion model on GAS_VALID ...\r')
