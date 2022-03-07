@@ -74,12 +74,12 @@ def multi_bulk_load(prefix, normalize_scale=1):
     hf_val_eval.close()
     return feat_a.astype('float32'), feat_v.astype('float32'), labels.astype('float32'), None 
 
-def bulk_load(prefix):
+def bulk_load(prefix, normalize_scale=1):
     feat = []; labels = []; hashes = []
     for filename in sorted(glob.glob(os.path.join(GAS_FEATURE_DIR, '%s_*.mat' % prefix)) +
                            glob.glob(os.path.join(DCASE_FEATURE_DIR, '%s_*.mat' % prefix))):
         data = loadmat(filename)
-        feat.append(((data['feat'] - mu) / sigma).astype('float32'))
+        feat.append(((data['feat'] - mu) / (sigma*normalize_scale)).astype('float32'))
         labels.append(data['labels'].astype('bool'))
         hashes.append(data['hashes'])
     return numpy.concatenate(feat), numpy.concatenate(labels), numpy.concatenate(hashes)

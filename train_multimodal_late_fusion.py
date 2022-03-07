@@ -134,7 +134,7 @@ if args.model_type in ['AST']:
         args.beta2,
         args.scheduler,
         args.gradient_accumulation,
-        args.normalize_scale
+        args.normalize_scale,
         args.ftstride
     )
 expid += args.additional_outname
