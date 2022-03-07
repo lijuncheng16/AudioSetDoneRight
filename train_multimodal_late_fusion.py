@@ -47,7 +47,7 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
 def adjust_learning_rate(optimizer, ckpt, args):
     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.init_lr * (0.1**(ckpt // 10))
+    lr = args.init_lr * (0.1**(ckpt // 20))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -82,13 +82,14 @@ parser.add_argument('--additional_outname', type = str, default = '')
 parser.add_argument('--continue_from_ckpt', type = str, default = None)
 parser.add_argument('--warmup_steps', type = int, default = 1000)
 parser.add_argument('--gradient_accumulation', type = int, default = 1)
-parser.add_argument('--scheduler', type = str, default = 'reduce', choices = ['reduce', 'warmup-decay','multistepLR'])
+parser.add_argument('--scheduler', type = str, default = 'reduce', choices = ['reduce', 'warmup-decay','multistepLR', 'constant'])
 parser.add_argument('--addpos', type = mybool, default = False)
 parser.add_argument('--transformer_dropout', type = float, default = 0.5)
 parser.add_argument('--from_scratch', type = mybool, default = False)
 parser.add_argument('--fusion_module', type = int, default = 0)# 0 for early fusion, 1 for mid fusion 1 
 parser.add_argument('--multi_gpu', type = bool, default = False)
 parser.add_argument('--normalize_scale', type = int, default = 1)
+parser.add_argument('--ftstride', type = int, default = 10)
 
 args = parser.parse_args()
 if 'x' not in args.kernel_size:
@@ -119,7 +120,7 @@ if args.model_type in ['TAL-trans', 'TAL', 'resnet','wide_resnet']:
         args.beta2
     )
 if args.model_type in ['AST']:
-    expid = '%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-weight-decay%.8f-betas%.3f-%.3f-%s-gdacc%d-scale%d' % (
+    expid = '%s-batch%d-ckpt%d-%s-lr%.0e-pat%d-fac%.1f-seed%d-weight-decay%.8f-betas%.3f-%.3f-%s-gdacc%d-scale%d-ftstride%d' % (
         args.model_type,
         args.batch_size,
         args.ckpt_size,
@@ -134,6 +135,7 @@ if args.model_type in ['AST']:
         args.scheduler,
         args.gradient_accumulation,
         args.normalize_scale
+        args.ftstride
     )
 expid += args.additional_outname
 WORKSPACE = os.path.join('../../workspace/ICASSP2021_tune', expid)
@@ -200,7 +202,7 @@ elif args.model_type == 'VM':
     model = videoModel(args)
 elif args.model_type == 'AST':
 #     model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=128, input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False)
-    model = ASTModel(label_dim=527, fstride=10, tstride=10, input_fdim=64, input_tdim=400, imagenet_pretrain=True, audioset_pretrain=False)
+    model = ASTModel(label_dim=527, fstride=args.ftstride, tstride=args.ftstride, input_fdim=64, input_tdim=400, imagenet_pretrain=True, audioset_pretrain=False)
 else:
     print ('model type not recognized')
     exit(0)
@@ -226,9 +228,9 @@ elif args.scheduler == 'warmup-decay':
     #     scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total) Deprecated API style
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps = t_total)
 elif args.scheduler == 'multistepLR':
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, [2,3,4,5], gamma=0.5, last_epoch=-1)
-
-
+    scheduler = MultiStepLR(optimizer, [3,6,20,30,40,60], gamma=0.5, last_epoch=-1)
+elif args.scheduler == 'constant':
+    scheduler = ConstantLR(optimizer, factor=0.5, total_iters=5)
 else:
     print ('scheduler type not recognized')
     exit(0)
@@ -297,6 +299,8 @@ for checkpoint in range(start_ckpt, args.max_ckpt + start_ckpt):
             if args.scheduler == 'warmup-decay':
                 scheduler.step() 
             elif args.scheduler == 'multistepLR':
+                scheduler.step(epoch = checkpoint)
+            elif args.scheduler == 'constant':
                 scheduler.step()
                 adjust_learning_rate(optimizer, checkpoint, args)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
