@@ -32,7 +32,7 @@ class ConvBlock(nn.Module):
         if self.pool_stride is not None: x = F.max_pool2d(x, self.pool_stride)
         return x
 
-class Net(nn.Module):
+class TALNet(nn.Module):
     def __init__(self, args):
         super(Net, self).__init__()
         self.__dict__.update(args.__dict__)     # Instill all args into self

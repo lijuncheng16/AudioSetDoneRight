@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.optim import *
 from torch.optim.lr_scheduler import *
 from torch.autograd import Variable
-from Net_mModal_mgpu import Net, NewNet, TransformerEncoder, Transformer, MMTEncoder, LateFusion, videoModel, SuperLateFusion
+from Net_mModal_mgpu import TALNet, NewNet, TransformerEncoder, Transformer, MMTEncoder, LateFusion, videoModel, SuperLateFusion
 from util_in_multi_h5_unnorm import *
 from util_out import *
 from util_f1 import *
@@ -183,7 +183,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Build model
 args.kernel_size = tuple(int(x) for x in args.kernel_size.split('x'))
 if args.model_type == 'TAL':
-    model = Net(args)
+    model = TALNet(args)
 elif args.model_type == 'TAL-trans':
     model = TransformerEncoder(args)
 elif args.model_type == 'TAL-new':
