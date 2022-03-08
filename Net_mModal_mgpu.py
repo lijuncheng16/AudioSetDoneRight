@@ -34,7 +34,7 @@ class ConvBlock(nn.Module):
 
 class TALNet(nn.Module):
     def __init__(self, args):
-        super(Net, self).__init__()
+        super(TALNet, self).__init__()
         self.__dict__.update(args.__dict__)     # Instill all args into self
 #         print(self.n_conv_layers)
         assert self.n_conv_layers % self.n_pool_layers == 0
