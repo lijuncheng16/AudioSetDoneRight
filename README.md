@@ -16,5 +16,6 @@ To test:
 see checkPerformance-xxx.ipynb
 
 
-This repo contains a lot of scrap material for our experiments, we suggest you go to our newer version of implementation.
+This repo contains a lot of scrap material for our experiments, for training a model, we suggest you go to our newer version of implementation.
 The newer version of implementation can be found at: https://github.com/lijuncheng16/AudioTaggingDoneRight
+This repository is good for testing your pre-trained models.
